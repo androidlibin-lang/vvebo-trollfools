@@ -1,80 +1,53 @@
-name: Build VVebo Fix
+name: Build VVebo Fix (Fast)
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup Build Environment
+    - name: Quick Setup
       run: |
-        sudo apt-get update
-        sudo apt-get install -y git make perl curl unzip build-essential
-        sudo apt-get install -y libncurses5 libncurses5-dev libtinfo5
-        sudo apt-get install -y clang llvm
+        sudo apt-get update -qq
+        sudo apt-get install -y git make perl curl unzip clang
         
-        # Create compatibility symlinks
-        sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
-        
-    - name: Setup Theos
+    - name: Setup Minimal Theos
       run: |
-        # Install Theos
-        git clone --recursive https://github.com/theos/theos.git $HOME/theos
-        export THEOS=$HOME/theos
-        
-        # Use system clang instead of downloading problematic toolchain
-        mkdir -p $HOME/theos/toolchain/linux/iphone/bin
-        ln -sf /usr/bin/clang $HOME/theos/toolchain/linux/iphone/bin/clang
-        ln -sf /usr/bin/clang++ $HOME/theos/toolchain/linux/iphone/bin/clang++
-        
-        # Download iOS SDK
-        curl -LO https://github.com/theos/sdks/archive/master.zip
-        unzip master.zip
+        git clone --depth=1 https://github.com/theos/theos.git $HOME/theos
+        curl -sL https://github.com/theos/sdks/archive/master.zip -o sdks.zip
+        unzip -q sdks.zip
         mv sdks-master/* $HOME/theos/sdks/
         
-    - name: Create Custom Makefile
+    - name: Create Simple Build
       run: |
-        # Create a Makefile that works with system clang
-        cat > Makefile << 'EOF'
-        ARCHS = arm64 arm64e
-        TARGET := iphone:clang:14.5:14.0
+        export THEOS=$HOME/theos
+        
+        # Create minimal Makefile
+        cat > Makefile.simple << 'EOF'
+        THEOS_DEVICE_IP = localhost
+        ARCHS = arm64
+        TARGET = iphone:clang:14.5:14.0
         
         include $(THEOS)/makefiles/common.mk
         
         TWEAK_NAME = VVeboFix
-        
         VVeboFix_FILES = Tweak.x
-        VVeboFix_CFLAGS = -fobjc-arc -target arm64-apple-ios14.0
-        VVeboFix_LDFLAGS = -target arm64-apple-ios14.0
+        VVeboFix_CFLAGS = -fobjc-arc
         
         include $(THEOS)/makefiles/tweak.mk
         EOF
         
-    - name: Build Tweak
-      run: |
-        export THEOS=$HOME/theos
+        # Build with system tools
         export PATH=$THEOS/bin:$PATH
+        make -f Makefile.simple clean
+        make -f Makefile.simple package FINALPACKAGE=1
         
-        # Set cross-compilation flags
-        export CC=clang
-        export CXX=clang++
-        export CFLAGS="-target arm64-apple-ios14.0"
-        export CXXFLAGS="-target arm64-apple-ios14.0"
-        export LDFLAGS="-target arm64-apple-ios14.0"
-        
-        make clean
-        make package FINALPACKAGE=1 DEBUG=0
-        
-    - name: Upload Artifact
+    - name: Upload Result
       uses: actions/upload-artifact@v3
       with:
-        name: VVeboFix-deb
+        name: VVeboFix-deb-fast
         path: packages/*.deb
