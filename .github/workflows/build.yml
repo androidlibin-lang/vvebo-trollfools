@@ -9,16 +9,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup Theos
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git make perl curl unzip
+        sudo apt-get install -y git make perl curl unzip build-essential
+        # Install required libraries for clang toolchain
+        sudo apt-get install -y libtinfo5 libncurses5 libncurses5-dev
         
+    - name: Setup Theos
+      run: |
         # Install Theos
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
         export THEOS=$HOME/theos
@@ -31,6 +35,9 @@ jobs:
         mkdir -p $HOME/theos/toolchain/linux/iphone
         mv $TMP/ios-arm64e-clang-toolchain/* $HOME/theos/toolchain/linux/iphone/
         
+        # Fix library links
+        sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
+        
         # Download iOS SDK
         curl -LO https://github.com/theos/sdks/archive/master.zip
         unzip master.zip
@@ -40,6 +47,7 @@ jobs:
       run: |
         export THEOS=$HOME/theos
         export PATH=$THEOS/bin:$PATH
+        export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
         make clean
         make package FINALPACKAGE=1
         
@@ -48,3 +56,4 @@ jobs:
       with:
         name: VVeboFix-deb
         path: packages/*.deb
+        retention-days: 30
