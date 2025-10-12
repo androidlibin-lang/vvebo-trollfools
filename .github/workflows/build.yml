@@ -12,23 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Theos
       run: |
         sudo apt-get update
-        sudo apt-get install -y git make perl curl
+        sudo apt-get install -y git make perl curl unzip
         
         # Install Theos
         git clone --recursive https://github.com/theos/theos.git $HOME/theos
-        echo "export THEOS=$HOME/theos" >> $HOME/.bashrc
-        echo "export PATH=\$THEOS/bin:\$PATH" >> $HOME/.bashrc
-        source $HOME/.bashrc
+        export THEOS=$HOME/theos
+        export PATH=$THEOS/bin:$PATH
         
         # Setup toolchain
         curl -LO https://github.com/sbingner/llvm-project/releases/latest/download/linux-ios-arm64e-clang-toolchain.tar.lzma
         TMP=$(mktemp -d)
-        tar -xvf linux-ios-arm64e-clang-toolchain.tar.lzma -C $TMP
+        tar -xf linux-ios-arm64e-clang-toolchain.tar.lzma -C $TMP
         mkdir -p $HOME/theos/toolchain/linux/iphone
         mv $TMP/ios-arm64e-clang-toolchain/* $HOME/theos/toolchain/linux/iphone/
         
@@ -45,7 +44,7 @@ jobs:
         make package FINALPACKAGE=1
         
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: VVeboFix-deb
         path: packages/*.deb
