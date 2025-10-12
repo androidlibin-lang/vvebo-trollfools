@@ -9,48 +9,72 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:18.04
+    runs-on: ubuntu-20.04
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
     
     - name: Setup Build Environment
       run: |
-        apt-get update
-        apt-get install -y git make perl curl unzip build-essential
-        apt-get install -y libncurses5 libncurses5-dev libtinfo5
-        apt-get install -y python3 python3-pip
+        sudo apt-get update
+        sudo apt-get install -y git make perl curl unzip build-essential
+        sudo apt-get install -y libncurses5 libncurses5-dev libtinfo5
+        sudo apt-get install -y clang llvm
+        
+        # Create compatibility symlinks
+        sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
         
     - name: Setup Theos
       run: |
         # Install Theos
-        git clone --recursive https://github.com/theos/theos.git /opt/theos
-        export THEOS=/opt/theos
-        export PATH=$THEOS/bin:$PATH
+        git clone --recursive https://github.com/theos/theos.git $HOME/theos
+        export THEOS=$HOME/theos
         
-        # Download compatible toolchain for Ubuntu 18.04
-        curl -LO https://github.com/sbingner/llvm-project/releases/download/swift-5.3.2-RELEASE/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-        tar -xf clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-        mkdir -p /opt/theos/toolchain/linux/iphone
-        mv clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04/* /opt/theos/toolchain/linux/iphone/
+        # Use system clang instead of downloading problematic toolchain
+        mkdir -p $HOME/theos/toolchain/linux/iphone/bin
+        ln -sf /usr/bin/clang $HOME/theos/toolchain/linux/iphone/bin/clang
+        ln -sf /usr/bin/clang++ $HOME/theos/toolchain/linux/iphone/bin/clang++
         
         # Download iOS SDK
         curl -LO https://github.com/theos/sdks/archive/master.zip
         unzip master.zip
-        mv sdks-master/* /opt/theos/sdks/
+        mv sdks-master/* $HOME/theos/sdks/
+        
+    - name: Create Custom Makefile
+      run: |
+        # Create a Makefile that works with system clang
+        cat > Makefile << 'EOF'
+        ARCHS = arm64 arm64e
+        TARGET := iphone:clang:14.5:14.0
+        
+        include $(THEOS)/makefiles/common.mk
+        
+        TWEAK_NAME = VVeboFix
+        
+        VVeboFix_FILES = Tweak.x
+        VVeboFix_CFLAGS = -fobjc-arc -target arm64-apple-ios14.0
+        VVeboFix_LDFLAGS = -target arm64-apple-ios14.0
+        
+        include $(THEOS)/makefiles/tweak.mk
+        EOF
         
     - name: Build Tweak
       run: |
-        export THEOS=/opt/theos
+        export THEOS=$HOME/theos
         export PATH=$THEOS/bin:$PATH
+        
+        # Set cross-compilation flags
+        export CC=clang
+        export CXX=clang++
+        export CFLAGS="-target arm64-apple-ios14.0"
+        export CXXFLAGS="-target arm64-apple-ios14.0"
+        export LDFLAGS="-target arm64-apple-ios14.0"
+        
         make clean
-        make package FINALPACKAGE=1
+        make package FINALPACKAGE=1 DEBUG=0
         
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: VVeboFix-deb
         path: packages/*.deb
-        retention-days: 30
