@@ -23,6 +23,9 @@ jobs:
           curl -L https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz \
             | tar -xJ -C "$HOME/theos/sdks"
 
+      - name: Install ldid
+        run: brew install ldid
+
       - name: Build Tweak
         run: |
           make package FINALPACKAGE=1 DEBUG=0
