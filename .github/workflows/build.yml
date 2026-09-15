@@ -26,9 +26,28 @@ jobs:
       - name: Install ldid
         run: brew install ldid
 
-      - name: Build Tweak
+      - name: Rewrite control with Unix line endings
         run: |
-          make package FINALPACKAGE=1 DEBUG=0
+          python3 - <<'PY'
+          from pathlib import Path
+          Path("control").write_text(
+          "Package: com.vvebofix.tweak\n"
+          "Name: VVebo Fix\n"
+          "Depends: mobilesubstrate\n"
+          "Version: 1.0.0\n"
+          "Architecture: iphoneos-arm\n"
+          "Description: Fix VVebo user profile for TrollFools\n"
+          "Maintainer: VVeboFix\n"
+          "Author: VVeboFix\n"
+          "Section: Tweaks\n"
+          "Tag: purpose::extension\n",
+          newline="\n",
+          encoding="utf-8",
+          )
+          PY
+
+      - name: Build Tweak
+        run: make package FINALPACKAGE=1 DEBUG=0
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
