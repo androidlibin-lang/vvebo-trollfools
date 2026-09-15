@@ -1,10 +1,9 @@
-Package: com.vvebofix.tweak
-Name: VVebo Fix
+Package: com.vvebofix
+Name: VVeboFix
 Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: 修复 VVebo 用户主页显示问题，适用于 iOS 14 TrollFools 注入
-Maintainer: VVeboFix
-Author: VVeboFix
+Description: Fix VVebo user profile timeline
+Maintainer: local
+Author: local
 Section: Tweaks
-Tag: purpose::extension
